@@ -36,7 +36,6 @@
   <div id="canvas-wrap"></div>
   <div id="ui">
     <button id="resetBtn">Reset View</button>
-    <button id="toggleSpinBtn">Toggle Spin</button>
   </div>
   <div id="hint">📱 On Android Chrome: tap “Enter AR” → move phone to scan → tap to place robot.</div>
 
@@ -46,12 +45,6 @@
     import { ARButton } from 'https://unpkg.com/three@0.152.2/examples/jsm/webxr/ARButton.js';
 
     let scene, camera, renderer, robot;
-    let eyeMaterials = [], eyeLights = [];
-    let animationRunning = true;
-
-    let cameraTheta = 0, cameraPhi = Math.PI/3, cameraRadius = 8;
-    const cameraTarget = new THREE.Vector3(0, 2, 0);
-
     let reticle, placed = false;
 
     const container = document.getElementById("canvas-wrap");
@@ -64,7 +57,7 @@
       scene.background = new THREE.Color(0x000000);
 
       camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.01, 100);
-      camera.position.set(0, 4, cameraRadius);
+      camera.position.set(0, 4, 8);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(window.devicePixelRatio);
@@ -96,17 +89,13 @@
         }
       });
 
-      // UI Buttons
+      // Reset Button
       document.getElementById("resetBtn").addEventListener("click", () => {
-        cameraTheta = 0; cameraPhi = Math.PI/3; cameraRadius = 8;
-        updateCamera();
-      });
-      document.getElementById("toggleSpinBtn").addEventListener("click", () => {
-        animationRunning = !animationRunning;
+        camera.position.set(0, 4, 8);
+        camera.lookAt(0, 2, 0);
       });
 
       window.addEventListener("resize", onWindowResize);
-      updateCamera();
     }
 
     function setupLights() {
@@ -130,7 +119,6 @@
       const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0xf8f8f8, roughness: 0.15 });
       const plastic = new THREE.MeshPhysicalMaterial({ color: 0x2c2c2c, roughness: 0.3 });
       const rubber = new THREE.MeshPhysicalMaterial({ color: 0x111111, roughness: 0.9 });
-      const metal = new THREE.MeshPhysicalMaterial({ color: 0x666666, roughness: 0.2, metalness: 0.8 });
 
       // Body
       const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 2), bodyMat);
@@ -151,11 +139,11 @@
 
       const leftEye = new THREE.Mesh(eyeGeometry, eyeMat.clone());
       leftEye.position.set(-0.35, 3.0, 1.08);
-      robot.add(leftEye); eyeMaterials.push(leftEye.material);
+      robot.add(leftEye);
 
       const rightEye = new THREE.Mesh(eyeGeometry, eyeMat.clone());
       rightEye.position.set(0.35, 3.0, 1.08);
-      robot.add(rightEye); eyeMaterials.push(rightEye.material);
+      robot.add(rightEye);
 
       // Wheels
       const wheelGeom = new THREE.CylinderGeometry(0.45, 0.45, 0.25, 32);
@@ -167,20 +155,16 @@
         robot.add(wheel);
       });
 
+      // scale smaller
+      robot.scale.set(0.5, 0.5, 0.5);
+
       robot.position.y = 1;
       scene.add(robot);
     }
 
-    function updateCamera() {
-      camera.position.x = cameraTarget.x + cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
-      camera.position.y = cameraTarget.y + cameraRadius * Math.cos(cameraPhi);
-      camera.position.z = cameraTarget.z + cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
-      camera.lookAt(cameraTarget);
-    }
-
     function animate() {
       renderer.setAnimationLoop(() => {
-        if (animationRunning && robot) robot.rotation.y += 0.003;
+        // no auto rotation
         renderer.render(scene, camera);
       });
     }
@@ -192,7 +176,4 @@
     }
   </script>
 </body>
-
-
-
-</html> 
+</html>
