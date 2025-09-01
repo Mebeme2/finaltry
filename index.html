@@ -83,7 +83,7 @@
 
       // Place robot in AR
       renderer.domElement.addEventListener("click", () => {
-        if (renderer.xr.isPresenting && reticle.visible && !placed) {
+        if (renderer.xr.isPresenting && reticle.visible) {
           robot.position.setFromMatrixPosition(reticle.matrix);
           placed = true;
         }
@@ -155,10 +155,10 @@
         robot.add(wheel);
       });
 
-      // scale smaller
-      robot.scale.set(0.5, 0.5, 0.5);
+      // Scale smaller
+      robot.scale.set(0.3, 0.3, 0.3);
 
-      robot.position.y = 1;
+      // No fixed Y-position → AR reticle controls placement
       scene.add(robot);
     }
 
@@ -177,3 +177,4 @@
   </script>
 </body>
 </html>
+
