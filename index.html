@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Robot AR Model</title>
+  <title>Robot AR Mission</title>
   <style>
     html, body {
       margin: 0; height: 100%; background: #000; color: #fff;
@@ -37,15 +37,14 @@
   <div id="ui">
     <button id="resetBtn">Reset View</button>
   </div>
-  <div id="hint">📱 On Android Chrome: tap “Enter AR” → move phone to scan → tap to place robot.</div>
+  <div id="hint">📱 Tap AR plane to place robot → tap again to move it to the target.</div>
 
-  <!-- Three.js + AR scripts -->
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
     import { ARButton } from 'https://unpkg.com/three@0.152.2/examples/jsm/webxr/ARButton.js';
 
-    let scene, camera, renderer, robot;
-    let reticle, placed = false;
+    let scene, camera, renderer, robot, bed;
+    let reticle, placed = false, moving = false;
 
     const container = document.getElementById("canvas-wrap");
 
@@ -68,6 +67,7 @@
       setupLights();
       createGround();
       createRobot();
+      createBed();
 
       // AR Button
       document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
@@ -81,15 +81,18 @@
       reticle.visible = false;
       scene.add(reticle);
 
-      // Place robot in AR
+      // Place robot or move it on tap
       renderer.domElement.addEventListener("click", () => {
-        if (renderer.xr.isPresenting && reticle.visible) {
+        if (renderer.xr.isPresenting && reticle.visible && !placed) {
           robot.position.setFromMatrixPosition(reticle.matrix);
+          bed.position.copy(robot.position).add(new THREE.Vector3(0.5, 0, -0.5));
+          bed.visible = true;
           placed = true;
+        } else if (placed && !moving) {
+          moveRobotToBed();
         }
       });
 
-      // Reset Button
       document.getElementById("resetBtn").addEventListener("click", () => {
         camera.position.set(0, 2, 4);
         camera.lookAt(0, 1, 0);
@@ -120,48 +123,66 @@
       const plastic = new THREE.MeshPhysicalMaterial({ color: 0x2c2c2c, roughness: 0.3 });
       const rubber = new THREE.MeshPhysicalMaterial({ color: 0x111111, roughness: 0.9 });
 
-      // Smaller body (0.25m x 0.35m x 0.2m)
+      // Body
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.35, 0.2), bodyMat);
-      body.position.set(0, 0.2, 0);
-      robot.add(body);
+      body.position.set(0, 0.2, 0); robot.add(body);
 
       // Head
       const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.05), plastic);
-      head.position.set(0, 0.35, 0.1);
-      robot.add(head);
+      head.position.set(0, 0.35, 0.1); robot.add(head);
 
       // Eyes
-      const eyeGeometry = new THREE.BoxGeometry(0.03, 0.03, 0.01);
+      const eyeGeom = new THREE.BoxGeometry(0.03, 0.03, 0.01);
       const eyeMat = new THREE.MeshPhysicalMaterial({
         color: 0x00ffff, emissive: 0x00aaaa, emissiveIntensity: 1.5,
         transparent: true, opacity: 0.95
       });
+      const leftEye = new THREE.Mesh(eyeGeom, eyeMat.clone()); leftEye.position.set(-0.035, 0.35, 0.11); robot.add(leftEye);
+      const rightEye = new THREE.Mesh(eyeGeom, eyeMat.clone()); rightEye.position.set(0.035, 0.35, 0.11); robot.add(rightEye);
 
-      const leftEye = new THREE.Mesh(eyeGeometry, eyeMat.clone());
-      leftEye.position.set(-0.035, 0.35, 0.11);
-      robot.add(leftEye);
-
-      const rightEye = new THREE.Mesh(eyeGeometry, eyeMat.clone());
-      rightEye.position.set(0.035, 0.35, 0.11);
-      robot.add(rightEye);
-
-      // Wheels (small)
+      // Wheels
       const wheelGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16);
-      const positions = [[-0.12, 0.05, 0.07], [0.12, 0.05, 0.07], [-0.12, 0.05, -0.07], [0.12, 0.05, -0.07]];
+      const positions = [[-0.12, 0.05, 0.07],[0.12,0.05,0.07],[-0.12,0.05,-0.07],[0.12,0.05,-0.07]];
       positions.forEach(p => {
         const wheel = new THREE.Mesh(wheelGeom, rubber);
-        wheel.rotation.z = Math.PI/2;
-        wheel.position.set(...p);
-        robot.add(wheel);
+        wheel.rotation.z = Math.PI/2; wheel.position.set(...p); robot.add(wheel);
       });
 
-      // No scaling applied, robot is inherently small
       scene.add(robot);
+    }
+
+    function createBed() {
+      const bedGeo = new THREE.BoxGeometry(0.7, 0.4, 1.5);
+      const bedMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+      bed = new THREE.Mesh(bedGeo, bedMat);
+      bed.visible = false;
+      scene.add(bed);
+    }
+
+    function moveRobotToBed() {
+      moving = true;
+      const startPos = robot.position.clone();
+      const endPos = bed.position.clone();
+      endPos.y = startPos.y;
+
+      let start = null;
+      function move(t) {
+        if (!start) start = t;
+        const progress = (t - start) / 2000; // 2 sec
+        if (progress < 1) {
+          robot.position.lerpVectors(startPos, endPos, progress);
+          requestAnimationFrame(move);
+        } else {
+          robot.position.copy(endPos);
+          alert("Mission Successful. See you again!");
+          moving = false;
+        }
+      }
+      requestAnimationFrame(move);
     }
 
     function animate() {
       renderer.setAnimationLoop(() => {
-        // no auto rotation
         renderer.render(scene, camera);
       });
     }
